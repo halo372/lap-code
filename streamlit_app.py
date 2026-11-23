@@ -31,6 +31,13 @@ GITHUB_REPOSITORY = secret("GITHUB_REPOSITORY", "jaloo0/clip-farm")
 DASHBOARD_PASSWORD = secret("DASHBOARD_PASSWORD")
 
 
+class GitHubAPIError(RuntimeError):
+    def __init__(self, status_code: int, path: str, detail: str):
+        self.status_code = status_code
+        self.path = path
+        super().__init__(f"GitHub API {status_code} for {path}: {detail}")
+
+
 def gh(method: str, path: str, **kwargs) -> requests.Response:
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -40,7 +47,7 @@ def gh(method: str, path: str, **kwargs) -> requests.Response:
     response = requests.request(method, f"{API}{path}", headers=headers, timeout=120, **kwargs)
     if not response.ok:
         detail = response.text[:1000]
-        raise RuntimeError(f"GitHub API {response.status_code}: {detail}")
+        raise GitHubAPIError(response.status_code, path, detail)
     return response
 
 
@@ -335,7 +342,9 @@ if files:
                 st.write(f"Creating Release `{tag}`...")
                 try:
                     release = find_release(tag)
-                except RuntimeError:
+                except GitHubAPIError as exc:
+                    if exc.status_code != 404:
+                        raise
                     release = create_release(tag)
 
                 st.write(f"Uploading {len(assets)} files...")
@@ -352,6 +361,15 @@ if files:
             st.link_button("Open source Release", release["html_url"])
             st.code(tag)
         except Exception as exc:
-            st.error(str(exc))
+            if isinstance(exc, GitHubAPIError) and exc.status_code == 404:
+                st.error(
+                    f"{exc}\n\nCheck that GITHUB_REPOSITORY is the correct owner/repository "
+                    "and that GITHUB_TOKEN can access it. For a fine-grained token, grant "
+                    "Contents: Read and write; workflow dispatch also requires Actions: "
+                    "Read and write. GitHub may return 404 when a private repository is "
+                    "inaccessible to the token."
+                )
+            else:
+                st.error(str(exc))
 else:
     st.info("Add matching `.mp4` and `.job.json` files, or a ZIP bundle with `manifest.json` and its MP4 clips.")

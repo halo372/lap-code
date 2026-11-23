@@ -14,7 +14,11 @@ Edit `.streamlit/secrets.toml` and add:
 - `GITHUB_REPOSITORY`: `owner/repository`
 - `DASHBOARD_PASSWORD`: a private password for the dashboard
 
-The token needs repository access to **Contents**, **Actions**, and **Releases** with write permission.
+The token needs access to the configured repository with **Contents: Read and write** permission
+(for creating releases and uploading assets) and **Actions: Read and write** permission
+(for dispatching the workflow). Confirm `GITHUB_REPOSITORY` is the `owner/repository` that
+contains `render.yml`. GitHub can return 404 when the repository name is wrong or a private
+repository is not accessible to the token.
 
 ## Use
 
